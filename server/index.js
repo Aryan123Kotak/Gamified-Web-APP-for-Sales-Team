@@ -1,0 +1,369 @@
+import express from 'express';
+import cors from 'cors';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { db, JWT_SECRET } from './db.js';
+import {
+  modules,
+  XP,
+  publicContent,
+  allPrompts,
+  allMissions,
+  badgeCatalog,
+} from './content/index.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const PORT = process.env.PORT || 4000;
+const PASS_RATIO = 0.6; // score needed to beat a boss quiz
+
+// ---------- helpers ----------
+
+const findModule = (id) => modules.find((m) => m.id === Number(id));
+
+function signToken(user) {
+  return jwt.sign({ id: user.id, name: user.name }, JWT_SECRET, { expiresIn: '30d' });
+}
+
+function auth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'Not logged in' });
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.userId = payload.id;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Session expired — log in again' });
+  }
+}
+
+function addXp(userId, amount, reason) {
+  if (amount <= 0) return;
+  db.prepare('UPDATE users SET xp = xp + ? WHERE id = ?').run(amount, userId);
+  db.prepare('INSERT INTO xp_events (user_id, amount, reason) VALUES (?, ?, ?)').run(
+    userId,
+    amount,
+    reason
+  );
+}
+
+function awardBadge(userId, badgeId) {
+  const r = db
+    .prepare('INSERT OR IGNORE INTO user_badges (user_id, badge_id) VALUES (?, ?)')
+    .run(userId, badgeId);
+  return r.changes > 0;
+}
+
+function lessonsDoneFor(userId) {
+  const rows = db
+    .prepare('SELECT module_id, lesson_id FROM lesson_progress WHERE user_id = ?')
+    .all(userId);
+  const map = {};
+  for (const r of rows) (map[r.module_id] ||= []).push(r.lesson_id);
+  return map;
+}
+
+function quizResultsFor(userId) {
+  const rows = db.prepare('SELECT * FROM quiz_results WHERE user_id = ?').all(userId);
+  const map = {};
+  for (const r of rows) {
+    map[r.module_id] = {
+      best: r.best_score,
+      total: r.total,
+      attempts: r.attempts,
+      passed: r.best_score >= Math.ceil(r.total * PASS_RATIO),
+    };
+  }
+  return map;
+}
+
+function moduleCompleted(m, lessonsDone, quizResults) {
+  const done = lessonsDone[m.id] || [];
+  const allLessons = m.lessons.every((l) => done.includes(l.id));
+  const quiz = quizResults[m.id];
+  return allLessons && !!quiz && quiz.passed;
+}
+
+function progressSnapshot(userId) {
+  const lessonsDone = lessonsDoneFor(userId);
+  const quizResults = quizResultsFor(userId);
+  const completed = modules.filter((m) => moduleCompleted(m, lessonsDone, quizResults)).map((m) => m.id);
+  const unlocked = modules
+    .filter((m) => m.id === 0 || completed.includes(m.id - 1))
+    .map((m) => m.id);
+  const missionsDone = db
+    .prepare('SELECT mission_id FROM mission_progress WHERE user_id = ?')
+    .all(userId)
+    .map((r) => r.mission_id);
+  const badges = db
+    .prepare('SELECT badge_id, earned_at FROM user_badges WHERE user_id = ?')
+    .all(userId);
+  const unlockedPromptIds = allPrompts
+    .filter((p) => completed.includes(p.moduleId))
+    .map((p) => p.id);
+  return { lessonsDone, quizResults, completed, unlocked, missionsDone, badges, unlockedPromptIds };
+}
+
+// Award any badges implied by the current progress state. Returns newly earned badge ids.
+function refreshBadges(userId, snap) {
+  const fresh = [];
+  const grant = (id) => {
+    if (awardBadge(userId, id)) fresh.push(id);
+  };
+
+  for (const id of snap.completed) grant(`module-${id}`);
+  if (snap.completed.length >= 8) grant('halfway');
+  if (snap.completed.length >= modules.length) grant('champion');
+  if (snap.unlockedPromptIds.length >= 15) grant('vault-15');
+  if (snap.unlockedPromptIds.length >= allPrompts.length) grant('vault-all');
+  if (snap.missionsDone.length >= allMissions.length) grant('missions-all');
+
+  const perfects = db
+    .prepare('SELECT COUNT(*) AS n FROM quiz_results WHERE user_id = ? AND best_score = total')
+    .get(userId).n;
+  if (perfects >= 1) grant('perfect-boss');
+  if (perfects >= 5) grant('five-perfect');
+
+  return fresh;
+}
+
+function userPublic(u) {
+  return { id: u.id, name: u.name, email: u.email, avatar: u.avatar, xp: u.xp, streak: u.streak };
+}
+
+// ---------- auth ----------
+
+app.post('/api/auth/register', (req, res) => {
+  const { name, email, password, avatar } = req.body || {};
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!email || !/^\S+@\S+\.\S+$/.test(email))
+    return res.status(400).json({ error: 'A valid email is required' });
+  if (!password || password.length < 6)
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
+  if (exists) return res.status(409).json({ error: 'That email is already registered — log in instead' });
+
+  const hash = bcrypt.hashSync(password, 10);
+  const r = db
+    .prepare('INSERT INTO users (name, email, password_hash, avatar) VALUES (?, ?, ?, ?)')
+    .run(name.trim(), email.toLowerCase(), hash, avatar || '🦊');
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(r.lastInsertRowid);
+  res.json({ token: signToken(user), user: userPublic(user) });
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body || {};
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get((email || '').toLowerCase());
+  if (!user || !bcrypt.compareSync(password || '', user.password_hash))
+    return res.status(401).json({ error: 'Wrong email or password' });
+  res.json({ token: signToken(user), user: userPublic(user) });
+});
+
+// ---------- content ----------
+
+app.get('/api/content', (_req, res) => {
+  res.json(publicContent());
+});
+
+// ---------- me (also applies the daily streak) ----------
+
+app.get('/api/me', auth, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userId);
+  if (!user) return res.status(401).json({ error: 'Account not found' });
+
+  // Daily streak: first request of a new day bumps it (yesterday keeps the chain).
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  let daily = null;
+  if (user.last_active !== today) {
+    const streak = user.last_active === yesterday ? user.streak + 1 : 1;
+    db.prepare('UPDATE users SET streak = ?, last_active = ? WHERE id = ?').run(
+      streak,
+      today,
+      user.id
+    );
+    addXp(user.id, XP.DAILY_STREAK, 'daily-streak');
+    user.streak = streak;
+    user.xp += XP.DAILY_STREAK;
+    daily = { amount: XP.DAILY_STREAK, streak };
+    if (streak >= 3) awardBadge(user.id, 'streak-3');
+    if (streak >= 7) awardBadge(user.id, 'streak-7');
+  }
+
+  const snap = progressSnapshot(user.id);
+  refreshBadges(user.id, snap);
+  const badges = db
+    .prepare('SELECT badge_id, earned_at FROM user_badges WHERE user_id = ?')
+    .all(user.id);
+
+  res.json({ user: userPublic(user), progress: { ...snap, badges }, daily });
+});
+
+// ---------- lessons ----------
+
+app.post('/api/lessons/complete', auth, (req, res) => {
+  const { moduleId, lessonId } = req.body || {};
+  const mod = findModule(moduleId);
+  if (!mod) return res.status(400).json({ error: 'Unknown module' });
+  if (!mod.lessons.some((l) => l.id === lessonId))
+    return res.status(400).json({ error: 'Unknown lesson' });
+
+  const snap = progressSnapshot(req.userId);
+  if (!snap.unlocked.includes(mod.id))
+    return res.status(403).json({ error: 'Module is still locked — beat the previous boss first' });
+
+  const r = db
+    .prepare(
+      'INSERT OR IGNORE INTO lesson_progress (user_id, module_id, lesson_id) VALUES (?, ?, ?)'
+    )
+    .run(req.userId, mod.id, lessonId);
+
+  let xpGained = 0;
+  const newBadges = [];
+  if (r.changes > 0) {
+    xpGained = XP.LESSON;
+    addXp(req.userId, xpGained, `lesson:${mod.id}/${lessonId}`);
+    if (awardBadge(req.userId, 'first-lesson')) newBadges.push('first-lesson');
+  }
+
+  const after = progressSnapshot(req.userId);
+  res.json({ xpGained, newBadges, progress: after });
+});
+
+// ---------- boss quiz ----------
+
+app.post('/api/quiz/submit', auth, (req, res) => {
+  const { moduleId, answers } = req.body || {};
+  const mod = findModule(moduleId);
+  if (!mod) return res.status(400).json({ error: 'Unknown module' });
+  if (!Array.isArray(answers) || answers.length !== mod.quiz.length)
+    return res.status(400).json({ error: 'Answer every question before submitting' });
+
+  const snap = progressSnapshot(req.userId);
+  if (!snap.unlocked.includes(mod.id))
+    return res.status(403).json({ error: 'Module is still locked' });
+  const done = snap.lessonsDone[mod.id] || [];
+  if (!mod.lessons.every((l) => done.includes(l.id)))
+    return res.status(403).json({ error: 'Finish all lessons before challenging the boss' });
+
+  const results = mod.quiz.map((q, i) => ({
+    yourAnswer: answers[i],
+    correct: q.correct,
+    isCorrect: Number(answers[i]) === q.correct,
+    explain: q.explain,
+  }));
+  const score = results.filter((r) => r.isCorrect).length;
+  const total = mod.quiz.length;
+  const passed = score >= Math.ceil(total * PASS_RATIO);
+
+  const prev = db
+    .prepare('SELECT * FROM quiz_results WHERE user_id = ? AND module_id = ?')
+    .get(req.userId, mod.id);
+  const prevBest = prev ? prev.best_score : 0;
+
+  // XP only for improvement over your best — no farming retakes.
+  let xpGained = 0;
+  if (score > prevBest) {
+    xpGained += (score - prevBest) * XP.QUIZ_PER_CORRECT;
+    if (score === total && prevBest < total) xpGained += XP.QUIZ_PERFECT_BONUS;
+  }
+
+  if (prev) {
+    db.prepare(
+      `UPDATE quiz_results SET best_score = MAX(best_score, ?), attempts = attempts + 1,
+       updated_at = datetime('now') WHERE user_id = ? AND module_id = ?`
+    ).run(score, req.userId, mod.id);
+  } else {
+    db.prepare(
+      'INSERT INTO quiz_results (user_id, module_id, best_score, total, attempts) VALUES (?, ?, ?, ?, 1)'
+    ).run(req.userId, mod.id, score, total);
+  }
+  if (xpGained) addXp(req.userId, xpGained, `quiz:${mod.id}`);
+
+  const after = progressSnapshot(req.userId);
+  const newBadges = refreshBadges(req.userId, after);
+  const moduleNowCompleted = after.completed.includes(mod.id) && !snap.completed.includes(mod.id);
+  const unlockedPrompts = moduleNowCompleted ? mod.prompts : [];
+
+  res.json({
+    score,
+    total,
+    passed,
+    perfect: score === total,
+    xpGained,
+    results,
+    newBadges,
+    moduleCompleted: moduleNowCompleted,
+    unlockedPrompts,
+    progress: after,
+  });
+});
+
+// ---------- missions ----------
+
+app.post('/api/missions/complete', auth, (req, res) => {
+  const { missionId } = req.body || {};
+  const mission = allMissions.find((m) => m.id === missionId);
+  if (!mission) return res.status(400).json({ error: 'Unknown mission' });
+
+  const snap = progressSnapshot(req.userId);
+  if (!snap.unlocked.includes(mission.moduleId))
+    return res.status(403).json({ error: 'Unlock the mission\'s module first' });
+
+  const r = db
+    .prepare('INSERT OR IGNORE INTO mission_progress (user_id, mission_id) VALUES (?, ?)')
+    .run(req.userId, missionId);
+
+  let xpGained = 0;
+  if (r.changes > 0) {
+    xpGained = mission.xp;
+    addXp(req.userId, xpGained, `mission:${missionId}`);
+  }
+
+  const after = progressSnapshot(req.userId);
+  const newBadges = refreshBadges(req.userId, after);
+  res.json({ xpGained, newBadges, progress: after });
+});
+
+// ---------- leaderboard ----------
+
+app.get('/api/leaderboard', auth, (req, res) => {
+  const allTime = db
+    .prepare(
+      `SELECT u.id, u.name, u.avatar, u.xp, u.streak,
+        (SELECT COUNT(*) FROM user_badges b WHERE b.user_id = u.id AND b.badge_id LIKE 'module-%') AS modulesCleared
+       FROM users u ORDER BY u.xp DESC, u.created_at ASC LIMIT 50`
+    )
+    .all();
+
+  const weekly = db
+    .prepare(
+      `SELECT u.id, u.name, u.avatar, COALESCE(SUM(e.amount), 0) AS xp
+       FROM users u
+       JOIN xp_events e ON e.user_id = u.id AND e.created_at >= datetime('now', '-7 day')
+       GROUP BY u.id ORDER BY xp DESC LIMIT 50`
+    )
+    .all();
+
+  const myRank = allTime.findIndex((u) => u.id === req.userId) + 1 || null;
+  res.json({ allTime, weekly, myRank });
+});
+
+// ---------- static client (production) ----------
+
+const dist = path.join(__dirname, '..', 'client', 'dist');
+app.use(express.static(dist));
+app.get(/^\/(?!api\/).*/, (_req, res, next) => {
+  res.sendFile(path.join(dist, 'index.html'), (err) => err && next());
+});
+
+app.listen(PORT, () => {
+  console.log(`⚡ AI Sales Arena server running on http://localhost:${PORT}`);
+});
