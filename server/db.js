@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS quiz_results (
   best_score INTEGER NOT NULL DEFAULT 0,
   total INTEGER NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
+  aced_first_try INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, module_id)
 );
@@ -65,6 +66,12 @@ CREATE TABLE IF NOT EXISTS xp_events (
 );
 CREATE INDEX IF NOT EXISTS idx_xp_events_user_time ON xp_events (user_id, created_at);
 `);
+
+// Migration: add aced_first_try to databases created before this column existed.
+const quizCols = db.prepare(`PRAGMA table_info(quiz_results)`).all();
+if (!quizCols.some((c) => c.name === 'aced_first_try')) {
+  db.exec('ALTER TABLE quiz_results ADD COLUMN aced_first_try INTEGER NOT NULL DEFAULT 0');
+}
 
 // JWT secret: env var wins; otherwise generate once and persist alongside the DB.
 const secretFile = path.join(dataDir, 'jwt-secret');

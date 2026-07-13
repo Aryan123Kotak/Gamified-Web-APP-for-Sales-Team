@@ -50,8 +50,31 @@ Any Node host works (Render, Railway, Fly.io, a small VPS):
 1. Build: `npm run setup && npm run build`
 2. Start: `npm start` (set `PORT` if needed; optionally set `JWT_SECRET` — otherwise one is generated and persisted)
 3. Make sure `server/data/` is on a persistent disk so accounts and progress survive restarts.
+4. Set `ALLOWED_ORIGINS` to your deployed frontend URL if you serve the client from a different origin.
 
 Everyone on the team registers with their own account; the leaderboard is shared automatically.
+
+### Configuration (environment variables)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4000` | Server port |
+| `JWT_SECRET` | auto-generated & persisted | Signing key for auth tokens |
+| `ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:4000` | Comma-separated CORS allowlist (same-origin and non-browser clients are always allowed) |
+| `AUTH_RATE_LIMIT_MAX` | `20` | Max login/register attempts per IP per 15 min |
+
+### Security
+
+The backend is hardened against common web risks:
+
+- **Auth** — passwords hashed with bcrypt; JWTs verified server-side (forged/tampered tokens rejected); login is timing-safe against email enumeration.
+- **Rate limiting** — login and registration are throttled per IP (`AUTH_RATE_LIMIT_MAX`) to resist brute-force and spam.
+- **Headers** — `helmet` sets a Content-Security-Policy (fonts + inline styles allowed, scripts locked to same-origin), `X-Frame-Options` (clickjacking), `nosniff`, and HSTS.
+- **CORS** — restricted to an explicit allowlist rather than a wildcard.
+- **Input** — request bodies capped at 32 KB; name/email/password length-limited; avatar validated against a fixed set; all DB access uses parameterized statements (no SQL injection).
+- **Game integrity** — quiz answers are stripped from `/api/content`; XP is award-once / improvement-only; the "flawless" perfect bonus and badge require a genuine first-attempt ace (you can't fail, read the revealed answers, and resubmit to farm it).
+
+Note: registering an email that already exists returns a clear "already registered" message (helpful for an internal tool); if you need to hide account existence entirely, add an email-verification flow.
 
 ## Project structure
 

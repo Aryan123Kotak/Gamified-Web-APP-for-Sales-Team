@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import path from 'node:path';
@@ -16,11 +18,71 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// Security headers. CSP allows Google Fonts and inline styles (the UI is styled
+// with React inline styles); scripts are locked to same-origin and the app
+// cannot be framed (clickjacking protection).
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+        imgSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+  })
+);
+
+// CORS: same-origin and non-browser clients (no Origin header) are always fine.
+// Cross-origin browser requests are only allowed from an explicit allowlist.
+const allowedOrigins = (
+  process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:4000'
+)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(null, false); // no CORS headers → browser blocks the response
+    },
+  })
+);
+
+app.use(express.json({ limit: '32kb' }));
+
+// Tidy response for oversized or malformed JSON bodies (4-arg = error handler).
+app.use((err, _req, res, next) => {
+  if (!err) return next();
+  const tooLarge = err.type === 'entity.too.large';
+  return res
+    .status(tooLarge ? 413 : 400)
+    .json({ error: tooLarge ? 'Request body too large' : 'Malformed request' });
+});
 
 const PORT = process.env.PORT || 4000;
 const PASS_RATIO = 0.6; // score needed to beat a boss quiz
+
+// Throttle auth endpoints against brute-force and mass-registration.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX) || 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts — please wait a few minutes and try again.' },
+});
+
+// A fixed bcrypt hash of a random value, used to spend the same time verifying a
+// password when the email is unknown — closes the login timing side-channel.
+const DUMMY_HASH = bcrypt.hashSync('unused-timing-equalizer', 10);
 
 // ---------- helpers ----------
 
@@ -125,7 +187,7 @@ function refreshBadges(userId, snap) {
   if (snap.missionsDone.length >= allMissions.length) grant('missions-all');
 
   const perfects = db
-    .prepare('SELECT COUNT(*) AS n FROM quiz_results WHERE user_id = ? AND best_score = total')
+    .prepare('SELECT COUNT(*) AS n FROM quiz_results WHERE user_id = ? AND aced_first_try = 1')
     .get(userId).n;
   if (perfects >= 1) grant('perfect-boss');
   if (perfects >= 5) grant('five-perfect');
@@ -139,30 +201,45 @@ function userPublic(u) {
 
 // ---------- auth ----------
 
-app.post('/api/auth/register', (req, res) => {
+const ALLOWED_AVATARS = new Set([
+  '🦊', '🦁', '🐯', '🦅', '🐺', '🦈', '🐉', '🦄', '🐼', '🤖', '👽', '🥷',
+]);
+
+app.post('/api/auth/register', authLimiter, (req, res) => {
   const { name, email, password, avatar } = req.body || {};
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
-  if (!email || !/^\S+@\S+\.\S+$/.test(email))
+  const cleanName = typeof name === 'string' ? name.trim() : '';
+  if (!cleanName) return res.status(400).json({ error: 'Name is required' });
+  if (cleanName.length > 60)
+    return res.status(400).json({ error: 'Name must be 60 characters or fewer' });
+  if (!email || typeof email !== 'string' || email.length > 254 || !/^\S+@\S+\.\S+$/.test(email))
     return res.status(400).json({ error: 'A valid email is required' });
-  if (!password || password.length < 6)
+  if (typeof password !== 'string' || password.length < 6)
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (password.length > 200)
+    return res.status(400).json({ error: 'Password must be 200 characters or fewer' });
 
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
   if (exists) return res.status(409).json({ error: 'That email is already registered — log in instead' });
 
+  const safeAvatar = ALLOWED_AVATARS.has(avatar) ? avatar : '🦊';
   const hash = bcrypt.hashSync(password, 10);
   const r = db
     .prepare('INSERT INTO users (name, email, password_hash, avatar) VALUES (?, ?, ?, ?)')
-    .run(name.trim(), email.toLowerCase(), hash, avatar || '🦊');
+    .run(cleanName, email.toLowerCase(), hash, safeAvatar);
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(r.lastInsertRowid);
   res.json({ token: signToken(user), user: userPublic(user) });
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', authLimiter, (req, res) => {
   const { email, password } = req.body || {};
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get((email || '').toLowerCase());
-  if (!user || !bcrypt.compareSync(password || '', user.password_hash))
-    return res.status(401).json({ error: 'Wrong email or password' });
+  // Always run a bcrypt comparison — against a dummy hash when the email is
+  // unknown — so the response time doesn't reveal whether an account exists.
+  const ok = bcrypt.compareSync(
+    typeof password === 'string' ? password : '',
+    user ? user.password_hash : DUMMY_HASH
+  );
+  if (!user || !ok) return res.status(401).json({ error: 'Wrong email or password' });
   res.json({ token: signToken(user), user: userPublic(user) });
 });
 
@@ -268,12 +345,15 @@ app.post('/api/quiz/submit', auth, (req, res) => {
     .get(req.userId, mod.id);
   const prevBest = prev ? prev.best_score : 0;
 
-  // XP only for improvement over your best — no farming retakes.
+  // A "flawless" ace only counts on the very first attempt at a module's quiz.
+  // The submit response reveals correct answers (for learning), so without this
+  // a player could fail once, read the answers, resubmit, and farm the perfect
+  // bonus + badge. Improvement XP still accrues on retakes up to the honest max.
+  const acedFirstTry = !prev && score === total;
+
   let xpGained = 0;
-  if (score > prevBest) {
-    xpGained += (score - prevBest) * XP.QUIZ_PER_CORRECT;
-    if (score === total && prevBest < total) xpGained += XP.QUIZ_PERFECT_BONUS;
-  }
+  if (score > prevBest) xpGained += (score - prevBest) * XP.QUIZ_PER_CORRECT;
+  if (acedFirstTry) xpGained += XP.QUIZ_PERFECT_BONUS;
 
   if (prev) {
     db.prepare(
@@ -282,8 +362,9 @@ app.post('/api/quiz/submit', auth, (req, res) => {
     ).run(score, req.userId, mod.id);
   } else {
     db.prepare(
-      'INSERT INTO quiz_results (user_id, module_id, best_score, total, attempts) VALUES (?, ?, ?, ?, 1)'
-    ).run(req.userId, mod.id, score, total);
+      `INSERT INTO quiz_results (user_id, module_id, best_score, total, attempts, aced_first_try)
+       VALUES (?, ?, ?, ?, 1, ?)`
+    ).run(req.userId, mod.id, score, total, acedFirstTry ? 1 : 0);
   }
   if (xpGained) addXp(req.userId, xpGained, `quiz:${mod.id}`);
 
@@ -296,7 +377,8 @@ app.post('/api/quiz/submit', auth, (req, res) => {
     score,
     total,
     passed,
-    perfect: score === total,
+    perfect: acedFirstTry, // "flawless" is reserved for a first-attempt ace
+    scoredFull: score === total, // this attempt got every question right
     xpGained,
     results,
     newBadges,
