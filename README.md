@@ -60,7 +60,19 @@ npm start
 
 Requires **Node 18+**. The SQLite database is created automatically at `server/data/arena.sqlite` on first run.
 
-### Deploying for the team
+### Deploying to shared hosting (Hostinger etc.) — no server needed
+
+There's a **static, browser-only build** that runs with no Node server, for shared
+hosting like Hostinger Web/Premium/Business. Progress saves in each visitor's browser
+(no cross-device login or shared leaderboard). Build it with:
+
+```bash
+npm run build:static     # outputs client/dist — upload its contents to public_html
+```
+
+Full step-by-step upload instructions are in **[HOSTINGER-DEPLOY.md](HOSTINGER-DEPLOY.md)**.
+
+### Deploying for the team (with the live leaderboard)
 
 Any Node host works (Render, Railway, Fly.io, a small VPS):
 

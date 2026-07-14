@@ -1,0 +1,27 @@
+# AI Learning Arena — static build for Hostinger (Apache) shared hosting.
+# This file ships inside the build output; upload it alongside index.html.
+
+# ----- Security headers (Helmet runs server-side; on static hosting we set them here) -----
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  # Content Security Policy: allow the app's own files, inline styles, Google Fonts,
+  # and data: images. No third-party scripts.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+  # HSTS (only takes effect over HTTPS — enable SSL in hPanel).
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# ----- Cache built assets aggressively (they are content-hashed) -----
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 month"
+</IfModule>
+
+# The app uses hash routing (URLs like /#/map), so no SPA rewrite rules are
+# needed — every request maps to a real file. index.html is the entry point.
+DirectoryIndex index.html

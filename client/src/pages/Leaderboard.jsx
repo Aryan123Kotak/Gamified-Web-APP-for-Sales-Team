@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGame, rankFor } from '../store.jsx';
-import { api } from '../api.js';
+import { api, LOCAL_MODE } from '../api.js';
 
 export default function Leaderboard() {
   const { me, content } = useGame();
@@ -26,7 +26,18 @@ export default function Leaderboard() {
     <>
       <div className="center">
         <h1 className="title-lg">📊 THE ARENA RANKINGS</h1>
-        <p className="muted mt-1">Whole-team leaderboard. XP is earned, never given. 😤</p>
+        <p className="muted mt-1">
+          {LOCAL_MODE
+            ? 'Profiles on this device. XP is earned, never given. 😤'
+            : 'Whole-team leaderboard. XP is earned, never given. 😤'}
+        </p>
+        {LOCAL_MODE && (
+          <p className="small muted mt-1" style={{ maxWidth: 520, margin: '6px auto 0' }}>
+            ℹ️ This offline version keeps each person's progress in their own browser, so this
+            board shows only profiles created on this device. For a live company-wide leaderboard,
+            the app needs the server version.
+          </p>
+        )}
       </div>
 
       <div className="tab-switch mt-3" style={{ maxWidth: 380, margin: '18px auto 0' }}>
