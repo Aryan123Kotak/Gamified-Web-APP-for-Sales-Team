@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS quiz_results (
 CREATE TABLE IF NOT EXISTS mission_progress (
   user_id INTEGER NOT NULL,
   mission_id TEXT NOT NULL,
+  best_score INTEGER NOT NULL DEFAULT 0,
+  band TEXT,
+  submission TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
   completed_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, mission_id)
 );
@@ -66,6 +70,17 @@ CREATE TABLE IF NOT EXISTS xp_events (
 );
 CREATE INDEX IF NOT EXISTS idx_xp_events_user_time ON xp_events (user_id, created_at);
 `);
+
+// Migration: add mission grading columns to databases created before they existed.
+const missionCols = db.prepare(`PRAGMA table_info(mission_progress)`).all();
+for (const [col, ddl] of [
+  ['best_score', 'ALTER TABLE mission_progress ADD COLUMN best_score INTEGER NOT NULL DEFAULT 0'],
+  ['band', 'ALTER TABLE mission_progress ADD COLUMN band TEXT'],
+  ['submission', 'ALTER TABLE mission_progress ADD COLUMN submission TEXT'],
+  ['attempts', 'ALTER TABLE mission_progress ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0'],
+]) {
+  if (!missionCols.some((c) => c.name === col)) db.exec(ddl);
+}
 
 // Migration: add aced_first_try to databases created before this column existed.
 const quizCols = db.prepare(`PRAGMA table_info(quiz_results)`).all();

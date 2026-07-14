@@ -14,6 +14,8 @@ import {
   allPrompts,
   allMissions,
   badgeCatalog,
+  stageBadgeMap,
+  findMission,
 } from './content/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -69,7 +71,8 @@ app.use((err, _req, res, next) => {
 });
 
 const PORT = process.env.PORT || 4000;
-const PASS_RATIO = 0.6; // score needed to beat a boss quiz
+const PASS_RATIO = 0.8; // score needed to beat a boss quiz (80%)
+const MISSION_PASS = 65; // marks needed for a mission to count as "competent" / done
 
 // Throttle auth endpoints against brute-force and mass-registration.
 const authLimiter = rateLimit({
@@ -152,6 +155,21 @@ function moduleCompleted(m, lessonsDone, quizResults) {
   return allLessons && !!quiz && quiz.passed;
 }
 
+function missionResultsFor(userId) {
+  const rows = db.prepare('SELECT * FROM mission_progress WHERE user_id = ?').all(userId);
+  const map = {};
+  for (const r of rows) {
+    map[r.mission_id] = {
+      best: r.best_score,
+      band: r.band,
+      submission: r.submission,
+      attempts: r.attempts,
+      passed: r.best_score >= MISSION_PASS,
+    };
+  }
+  return map;
+}
+
 function progressSnapshot(userId) {
   const lessonsDone = lessonsDoneFor(userId);
   const quizResults = quizResultsFor(userId);
@@ -159,17 +177,17 @@ function progressSnapshot(userId) {
   const unlocked = modules
     .filter((m) => m.id === 0 || completed.includes(m.id - 1))
     .map((m) => m.id);
-  const missionsDone = db
-    .prepare('SELECT mission_id FROM mission_progress WHERE user_id = ?')
-    .all(userId)
-    .map((r) => r.mission_id);
+  const missionResults = missionResultsFor(userId);
+  const missionsDone = Object.entries(missionResults)
+    .filter(([, v]) => v.passed)
+    .map(([id]) => id);
   const badges = db
     .prepare('SELECT badge_id, earned_at FROM user_badges WHERE user_id = ?')
     .all(userId);
   const unlockedPromptIds = allPrompts
     .filter((p) => completed.includes(p.moduleId))
     .map((p) => p.id);
-  return { lessonsDone, quizResults, completed, unlocked, missionsDone, badges, unlockedPromptIds };
+  return { lessonsDone, quizResults, completed, unlocked, missionResults, missionsDone, badges, unlockedPromptIds };
 }
 
 // Award any badges implied by the current progress state. Returns newly earned badge ids.
@@ -180,11 +198,15 @@ function refreshBadges(userId, snap) {
   };
 
   for (const id of snap.completed) grant(`module-${id}`);
-  if (snap.completed.length >= 8) grant('halfway');
   if (snap.completed.length >= modules.length) grant('champion');
   if (snap.unlockedPromptIds.length >= 15) grant('vault-15');
   if (snap.unlockedPromptIds.length >= allPrompts.length) grant('vault-all');
   if (snap.missionsDone.length >= allMissions.length) grant('missions-all');
+
+  // Stage-completion badges — every module in a stage cleared.
+  for (const [badgeId, moduleIds] of Object.entries(stageBadgeMap)) {
+    if (moduleIds.every((id) => snap.completed.includes(id))) grant(badgeId);
+  }
 
   const perfects = db
     .prepare('SELECT COUNT(*) AS n FROM quiz_results WHERE user_id = ? AND aced_first_try = 1')
@@ -193,6 +215,44 @@ function refreshBadges(userId, snap) {
   if (perfects >= 5) grant('five-perfect');
 
   return fresh;
+}
+
+// ---------- mission auto-grading ----------
+// Rubric criteria are keyword-matched against the learner's submission.
+// Returns marks 0–100, a 4-point band, and per-criterion feedback.
+function gradeSubmission(mission, submissionRaw) {
+  const submission = String(submissionRaw || '');
+  const text = submission.toLowerCase();
+  const words = submission.trim().split(/\s+/).filter(Boolean).length;
+
+  const criteria = mission.rubric.map((c) => {
+    const hit = c.keywords.some((k) => text.includes(k.toLowerCase()));
+    return { id: c.id, label: c.label, met: hit, weight: c.weight || 1 };
+  });
+
+  const totalWeight = criteria.reduce((s, c) => s + c.weight, 0) || 1;
+  const metWeight = criteria.reduce((s, c) => s + (c.met ? c.weight : 0), 0);
+  let score = Math.round((metWeight / totalWeight) * 100);
+
+  // Effort gate: a submission well under the asked length is capped, because
+  // a few keywords alone are not a genuine attempt.
+  const minWords = mission.minWords || 40;
+  let lengthNote = null;
+  if (words < Math.ceil(minWords * 0.5)) {
+    score = Math.min(score, 40);
+    lengthNote = `Too short — aim for at least ${minWords} words to show real thinking.`;
+  } else if (words < minWords) {
+    score = Math.min(score, 75);
+    lengthNote = `A bit short — around ${minWords}+ words would strengthen this.`;
+  }
+
+  const band =
+    score >= 85 ? { level: 4, name: 'Can guide others' }
+    : score >= 65 ? { level: 3, name: 'Competent' }
+    : score >= 40 ? { level: 2, name: 'Developing' }
+    : { level: 1, name: 'Needs support' };
+
+  return { score, band, criteria, words, lengthNote, passed: score >= MISSION_PASS };
 }
 
 function userPublic(u) {
@@ -388,30 +448,69 @@ app.post('/api/quiz/submit', auth, (req, res) => {
   });
 });
 
-// ---------- missions ----------
+// ---------- missions (submission-graded) ----------
 
-app.post('/api/missions/complete', auth, (req, res) => {
-  const { missionId } = req.body || {};
-  const mission = allMissions.find((m) => m.id === missionId);
+app.post('/api/missions/submit', auth, (req, res) => {
+  const { missionId, submission } = req.body || {};
+  const mission = findMission(missionId);
   if (!mission) return res.status(400).json({ error: 'Unknown mission' });
+  if (typeof submission !== 'string' || submission.trim().length < 10)
+    return res.status(400).json({ error: 'Please write your submission before submitting.' });
+  if (submission.length > 8000)
+    return res.status(400).json({ error: 'Submission is too long (keep it under 8000 characters).' });
 
   const snap = progressSnapshot(req.userId);
   if (!snap.unlocked.includes(mission.moduleId))
-    return res.status(403).json({ error: 'Unlock the mission\'s module first' });
+    return res.status(403).json({ error: "Unlock this mission's level first." });
 
-  const r = db
-    .prepare('INSERT OR IGNORE INTO mission_progress (user_id, mission_id) VALUES (?, ?)')
-    .run(req.userId, missionId);
+  const graded = gradeSubmission(mission, submission);
 
+  const prev = db
+    .prepare('SELECT * FROM mission_progress WHERE user_id = ? AND mission_id = ?')
+    .get(req.userId, missionId);
+  const prevBest = prev ? prev.best_score : 0;
+
+  // XP is scaled by marks and only paid for improving your best — no farming.
   let xpGained = 0;
-  if (r.changes > 0) {
-    xpGained = mission.xp;
-    addXp(req.userId, xpGained, `mission:${missionId}`);
+  if (graded.score > prevBest) {
+    const gainedMarks = graded.score - prevBest;
+    xpGained = Math.round((mission.maxXp * gainedMarks) / 100);
   }
+
+  const keepScore = Math.max(prevBest, graded.score);
+  // Store the submission + band of whichever attempt scored highest.
+  const storeBand = graded.score >= prevBest ? graded.band.name : prev.band;
+  const storeSubmission = graded.score >= prevBest ? submission : prev.submission;
+
+  if (prev) {
+    db.prepare(
+      `UPDATE mission_progress SET best_score = ?, band = ?, submission = ?,
+       attempts = attempts + 1, completed_at = datetime('now')
+       WHERE user_id = ? AND mission_id = ?`
+    ).run(keepScore, storeBand, storeSubmission, req.userId, missionId);
+  } else {
+    db.prepare(
+      `INSERT INTO mission_progress (user_id, mission_id, best_score, band, submission, attempts)
+       VALUES (?, ?, ?, ?, ?, 1)`
+    ).run(req.userId, missionId, graded.score, graded.band.name, submission);
+  }
+  if (xpGained) addXp(req.userId, xpGained, `mission:${missionId}`);
 
   const after = progressSnapshot(req.userId);
   const newBadges = refreshBadges(req.userId, after);
-  res.json({ xpGained, newBadges, progress: after });
+
+  res.json({
+    score: graded.score,
+    band: graded.band,
+    criteria: graded.criteria, // [{ label, met }]
+    lengthNote: graded.lengthNote,
+    passed: graded.passed,
+    bestScore: keepScore,
+    xpGained,
+    maxXp: mission.maxXp,
+    newBadges,
+    progress: after,
+  });
 });
 
 // ---------- leaderboard ----------

@@ -54,7 +54,7 @@ export default function Dashboard() {
           )}
         </div>
         <Link to={`/module/${nextUp.id}`} className="btn lg green">
-          {nextStatus.bossReady ? `⚔️ FIGHT BOSS ${nextUp.id}` : `▶ PLAY MODULE ${nextUp.id}`}
+          {nextStatus.bossReady ? `⚔️ TAKE QUIZ · LEVEL ${nextUp.id}` : `▶ PLAY LEVEL ${nextUp.id}`}
         </Link>
       </div>
 
@@ -74,7 +74,7 @@ export default function Dashboard() {
             <PromptCard prompt={potd} />
           ) : (
             <p className="muted mt-2">
-              Clear <b>Module 1</b> to unlock your first Prompt Card — then a fresh one appears here every day.
+              Clear <b>Level 3</b> to unlock your first Prompt Card — then a fresh one appears here every day.
             </p>
           )}
           <Link to="/vault" className="btn sm ghost mt-1">Open the Vault →</Link>
@@ -102,9 +102,10 @@ export default function Dashboard() {
         <div className="row">
           <span style={{ fontSize: '2rem' }}>🎖️</span>
           <div style={{ flex: 1 }}>
-            <h2 className="title-md" style={{ color: 'var(--yellow)' }}>Real-world missions</h2>
+            <h2 className="title-md" style={{ color: 'var(--yellow)' }}>Graded missions</h2>
             <p className="muted small">
-              XP in the app is practice. Missions are the real thing — set up your Cockpit, connect your tools, run a scrape. +40 XP each.
+              Practise each skill for real, then submit your work. Every mission is marked out of 100 on a
+              rubric — reach <b>Competent</b> (65+) to earn the badge. XP scales with your marks.
             </p>
           </div>
           <Link to="/missions" className="btn yellow sm">View missions</Link>

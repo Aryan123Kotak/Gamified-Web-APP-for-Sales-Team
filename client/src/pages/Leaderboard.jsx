@@ -72,7 +72,7 @@ export default function Leaderboard() {
                     {rk && (
                       <span className="muted small" style={{ display: 'block' }}>
                         {rk.emoji} {rk.name}
-                        {u.modulesCleared !== undefined && ` · ${u.modulesCleared}/16 modules`}
+                        {u.modulesCleared !== undefined && ` · ${u.modulesCleared}/${content.totals.modules} levels`}
                         {u.streak !== undefined && u.streak > 1 && ` · 🔥${u.streak}`}
                       </span>
                     )}

@@ -18,7 +18,7 @@ export default function Vault() {
       <div className="center">
         <h1 className="title-lg">🃏 THE PROMPT VAULT</h1>
         <p className="muted mt-1">
-          Every copy-paste prompt from the playbook, as collectible cards. Clear a module's boss to claim its cards.
+          Every framework and template from the guide, as collectible cards. Clear a level's quiz to claim its cards.
         </p>
         <div className="sticker yellow mt-2" style={{ background: 'var(--yellow)' }}>
           {unlockedCount} / {cards.length} COLLECTED
@@ -48,7 +48,7 @@ export default function Vault() {
             <div key={c.id} className="vault-card locked center">
               <span className="q">???</span>
               <div className="vc-title muted">Locked card</div>
-              <span className="small muted">Clear {c.module.emoji} Module {c.module.id} to unlock</span>
+              <span className="small muted">Clear {c.module.emoji} Level {c.module.id} to unlock</span>
             </div>
           );
         })}
@@ -58,12 +58,12 @@ export default function Vault() {
         <div className="modal-back" onClick={() => setOpen(null)}>
           <div className="panel modal" onClick={(e) => e.stopPropagation()}>
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <span className="sticker cyan">{open.module.emoji} MODULE {open.module.id}</span>
+              <span className="sticker cyan">{open.module.emoji} LEVEL {open.module.id}</span>
               <button className="btn ghost sm" onClick={() => setOpen(null)}>✕</button>
             </div>
             <PromptCard prompt={open} />
             <p className="muted small">
-              💡 Paste this into your Sales Cockpit Project so it inherits your context automatically.
+              💡 Copy this template and adapt it in your own AI tool — replace the brackets with your real, approved details.
             </p>
           </div>
         </div>

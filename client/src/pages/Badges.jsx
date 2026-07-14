@@ -46,7 +46,7 @@ export default function Badges() {
         ))}
       </div>
 
-      <h2 className="title-md mt-4">🗺️ Module badges</h2>
+      <h2 className="title-md mt-4">🗺️ Level badges</h2>
       <div className="badge-grid">
         {moduleBadges.map((b) => (
           <div key={b.id} className={`badge-tile ${earned.has(b.id) ? 'earned' : 'locked'}`}>

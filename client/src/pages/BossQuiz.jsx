@@ -113,7 +113,7 @@ export default function BossQuiz() {
                 <div className="sticker green mt-2">+{result.xpGained} XP EARNED</div>
               )}
               {!result.passed && (
-                <p className="muted mt-2">You need {Math.ceil(result.total * 0.6)}/{result.total} to win. Re-read the lessons and strike again!</p>
+                <p className="muted mt-2">You need {Math.ceil(result.total * 0.8)}/{result.total} (80%) to win. Re-read the lessons and strike again!</p>
               )}
             </div>
           )}
@@ -145,9 +145,9 @@ export default function BossQuiz() {
         {finished && (
           <div className="row mt-3" style={{ justifyContent: 'center' }}>
             {result.passed ? (
-              mod.id < 15 ? (
+              mod.id < 22 ? (
                 <button className="btn lg green" onClick={() => navigate(`/module/${mod.id + 1}`)}>
-                  NEXT MODULE →
+                  NEXT LEVEL →
                 </button>
               ) : (
                 <Link className="btn lg yellow" to="/badges">👑 CLAIM YOUR CROWN</Link>
@@ -178,7 +178,7 @@ export default function BossQuiz() {
           <div className="boss-emoji">{mod.emoji}</div>
           <div style={{ flex: 1, minWidth: 200 }}>
             <span className="game-font" style={{ color: 'var(--pink-2)', fontSize: '1.1rem' }}>
-              {mod.id === 15 ? '👑 FINAL BOSS FIGHT' : `BOSS FIGHT — MODULE ${mod.id}`}
+              {mod.id === 22 ? '👑 FINAL CHALLENGE' : `CHALLENGE — ${mod.stage}`}
             </span>
             <h1 className="title-md" style={{ color: '#fff' }}>{mod.title}</h1>
             <div className="row mt-1">

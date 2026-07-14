@@ -34,12 +34,12 @@ export default function Auth() {
     <div className="auth-wrap">
       <div className="panel auth-card">
         <span className="burst-emoji">⚡</span>
-        <h1 className="title-xl">AI SALES ARENA</h1>
+        <h1 className="title-xl">AI LEARNING ARENA</h1>
         <p className="muted mt-1">
-          Level up from <b>AI Rookie</b> to <b>10× Seller</b>. 16 modules · boss quizzes ·
-          prompt cards · real-world missions · team leaderboard.
+          Level up from <b>AI Newcomer</b> to <b>AI Champion</b>. 23 levels · 3 stages ·
+          quizzes · graded missions · a toolkit of prompt cards · team leaderboard.
         </p>
-        <div className="sticker pink mt-2">MALPANI GROUP · SALES TEAM</div>
+        <div className="sticker pink mt-2">MALPANI GROUP · AI TRAINING</div>
 
         <div className="tab-switch">
           <button className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>

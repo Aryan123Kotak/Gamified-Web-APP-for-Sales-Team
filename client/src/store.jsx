@@ -155,11 +155,14 @@ export function GameProvider({ children }) {
     [applyProgress]
   );
 
-  const completeMission = useCallback(
-    async (missionId) => {
-      const res = await api('/missions/complete', { method: 'POST', body: { missionId } });
+  const submitMission = useCallback(
+    async (missionId, submission) => {
+      const res = await api('/missions/submit', {
+        method: 'POST',
+        body: { missionId, submission },
+      });
       applyProgress(res);
-      celebrate(res);
+      celebrate(res); // XP + badge toasts; the page shows the marks + feedback
       return res;
     },
     [applyProgress, celebrate]
@@ -178,7 +181,7 @@ export function GameProvider({ children }) {
     refreshMe,
     completeLesson,
     submitQuiz,
-    completeMission,
+    submitMission,
     celebrate,
   };
 

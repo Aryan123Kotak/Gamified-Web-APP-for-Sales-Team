@@ -30,7 +30,7 @@ export default function Layout({ children }) {
     <>
       <header className="hud">
         <div className="hud-inner">
-          <Link to="/" className="logo">⚡ AI SALES ARENA</Link>
+          <Link to="/" className="logo">⚡ AI LEARNING ARENA</Link>
           <span className="spacer" />
           <span className="hud-pill" title="Daily streak">
             <span className="flame">🔥</span> {me.user.streak}

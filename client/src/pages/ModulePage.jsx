@@ -21,8 +21,8 @@ export default function ModulePage() {
       <div className="panel center" style={{ padding: 40 }}>
         <div style={{ fontSize: '3rem' }}>🔒</div>
         <h1 className="title-lg">LOCKED</h1>
-        <p className="muted mt-1">Beat Module {mod.id - 1}'s boss to unlock this one.</p>
-        <Link className="btn mt-3" to={`/module/${mod.id - 1}`}>Go to Module {mod.id - 1}</Link>
+        <p className="muted mt-1">Clear Level {mod.id - 1} to unlock this one.</p>
+        <Link className="btn mt-3" to={`/module/${mod.id - 1}`}>Go to Level {mod.id - 1}</Link>
       </div>
     );
   }
@@ -49,7 +49,7 @@ export default function ModulePage() {
           <div className="mod-emoji" style={{ width: 76, height: 76, fontSize: '2.6rem' }}>{mod.emoji}</div>
           <div style={{ flex: 1, minWidth: 220 }}>
             <span className="game-font" style={{ color: 'var(--pink-2)', fontSize: '1.05rem' }}>
-              {mod.id === 15 ? '👑 FINAL BOSS' : `MODULE ${mod.id} / 15`}
+              {mod.id === 22 ? '👑 FINAL LEVEL' : `${mod.stage} · LEVEL ${mod.id}`}
             </span>
             <h1 className="title-lg">{mod.title}</h1>
             <p className="muted">{mod.tagline}</p>
@@ -87,26 +87,26 @@ export default function ModulePage() {
       <div className="panel mt-3 center" style={{ borderColor: 'var(--pink)' }}>
         {s.completed ? (
           <>
-            <h2 className="title-md">Boss defeated — best {s.quiz.best}/{s.quiz.total} 🎉</h2>
+            <h2 className="title-md">Level cleared — best {s.quiz.best}/{s.quiz.total} 🎉</h2>
             <div className="row mt-2" style={{ justifyContent: 'center' }}>
               <button className="btn ghost" onClick={() => navigate(`/module/${mod.id}/boss`)}>
-                ⚔️ Rematch for a perfect score
+                🔁 Retake for a perfect score
               </button>
-              {mod.id < 15 && (
-                <Link className="btn green" to={`/module/${mod.id + 1}`}>Next module →</Link>
+              {mod.id < 22 && (
+                <Link className="btn green" to={`/module/${mod.id + 1}`}>Next level →</Link>
               )}
             </div>
           </>
         ) : s.bossReady ? (
           <>
-            <h2 className="title-md" style={{ color: 'var(--pink-2)' }}>THE BOSS AWAITS…</h2>
-            <p className="muted small mt-1">{mod.quizLength} questions · +{content.xp.QUIZ_PER_CORRECT} XP each · perfect run +{content.xp.QUIZ_PERFECT_BONUS} bonus</p>
+            <h2 className="title-md" style={{ color: 'var(--pink-2)' }}>THE QUIZ AWAITS…</h2>
+            <p className="muted small mt-1">{mod.quizLength} questions · need 80% to pass · +{content.xp.QUIZ_PER_CORRECT} XP each · flawless first try +{content.xp.QUIZ_PERFECT_BONUS} bonus</p>
             <button className="btn lg mt-2" onClick={() => { sfx.click(); navigate(`/module/${mod.id}/boss`); }}>
-              ⚔️ CHALLENGE THE BOSS
+              ⚔️ TAKE THE QUIZ
             </button>
           </>
         ) : (
-          <p className="muted">Finish all {s.totalLessons} lessons to summon the boss ⚔️</p>
+          <p className="muted">Finish all {s.totalLessons} lessons to unlock the quiz ⚔️</p>
         )}
       </div>
 
