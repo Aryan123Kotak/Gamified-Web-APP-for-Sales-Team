@@ -4,6 +4,41 @@ A **gamified learning web app** for Malpani Group, built from the *AI Complete T
 
 Employees level up from **🌱 AI Newcomer** to **🏆 AI Champion** by clearing 23 levels across 3 stages — reading lessons, passing quizzes, collecting a toolkit of prompt cards, and completing graded practice missions.
 
+## Screenshots
+
+<table>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/01-login.png" alt="Login / new player screen" width="100%">
+<p align="center"><sub>Login &amp; new player screen</sub></p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/02-dashboard.png" alt="Player dashboard" width="100%">
+<p align="center"><sub>Dashboard — rank, streak, prompt of the day, leaderboard preview</sub></p>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/03-learning-journey.png" alt="Learning journey map" width="100%">
+<p align="center"><sub>Learning Journey — 23 levels across 3 stages</sub></p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/04-quiz-victory.png" alt="Quiz victory screen" width="100%">
+<p align="center"><sub>Level quiz — flawless victory with battle log</sub></p>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/05-mission-graded.png" alt="Graded mission submission" width="100%">
+<p align="center"><sub>A mission auto-graded 100/100 with per-point feedback</sub></p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/06-leaderboard.png" alt="Team leaderboard" width="100%">
+<p align="center"><sub>Team leaderboard — all-time &amp; this-week XP</sub></p>
+</td>
+</tr>
+</table>
+
 ## The three stages (23 levels)
 
 - **🟢 Stage 1 · AI Ready** (Levels 0–6) — getting comfortable, what AI is/isn't, AI vs Google vs Human, safe/responsible use (Green-Yellow-Red), prompting (RTF / CTRO / CO-STAR), verification (PAUSE), image models.
