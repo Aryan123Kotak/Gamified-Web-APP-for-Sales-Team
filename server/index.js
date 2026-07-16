@@ -262,7 +262,7 @@ function userPublic(u) {
 // ---------- auth ----------
 
 const ALLOWED_AVATARS = new Set([
-  '🦊', '🦁', '🐯', '🦅', '🐺', '🦈', '🐉', '🦄', '🐼', '🤖', '👽', '🥷',
+  '🦊', '🦁', '🐯', '🦅', '🐺', '🦈', '🐉', '🦄', '🐼', '🐱', '🤖', '👽', '🥷',
 ]);
 
 app.post('/api/auth/register', authLimiter, (req, res) => {

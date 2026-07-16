@@ -3,7 +3,7 @@ import { useGame } from '../store.jsx';
 import { sfx } from '../sounds.js';
 import InstallButton from '../components/InstallButton.jsx';
 
-const AVATARS = ['🦊', '🦁', '🐯', '🦅', '🐺', '🦈', '🐉', '🦄', '🐼', '🤖', '👽', '🥷'];
+const AVATARS = ['🦊', '🦁', '🐯', '🦅', '🐺', '🦈', '🐉', '🦄', '🐼', '🐱', '🤖', '👽', '🥷'];
 
 export default function Auth() {
   const { login, register } = useGame();

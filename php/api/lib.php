@@ -336,7 +336,7 @@ function user_public(array $u): array {
   ];
 }
 
-const ALLOWED_AVATARS = ['🦊','🦁','🐯','🦅','🐺','🦈','🐉','🦄','🐼','🤖','👽','🥷'];
+const ALLOWED_AVATARS = ['🦊','🦁','🐯','🦅','🐺','🦈','🐉','🦄','🐼','🐱','🤖','👽','🥷'];
 
 function read_json_body(): array {
   $raw = file_get_contents('php://input');
