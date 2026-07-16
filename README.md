@@ -95,17 +95,38 @@ npm start
 
 Requires **Node 18+**. The SQLite database is created automatically at `server/data/arena.sqlite` on first run.
 
-### Deploying to shared hosting (Hostinger etc.) — no server needed
+### Deploying to Hostinger shared hosting — recommended (PHP + MySQL) ⭐
 
-There's a **static, browser-only build** that runs with no Node server, for shared
-hosting like Hostinger Web/Premium/Business. Progress saves in each visitor's browser
-(no cross-device login or shared leaderboard). Build it with:
+A **PHP + MySQL** backend is included so the app runs on a normal Hostinger shared plan
+(no Node server) **with everything the team needs**:
+
+- **One account works on every device** — progress lives in a shared MySQL database, so
+  logging in on your phone shows the same journey as your laptop.
+- **Installable app (PWA)** — an **⬇️ Install app** button at the top adds it to phones/desktops.
+- **Admin panel** at `/admin` — see every user's journey and performance, add/edit/delete users,
+  reset progress, adjust XP, edit content, and **export all data to Excel**. Admin login is a
+  single email/password you control in `api/config.php`.
+
+Build the upload bundle with one command:
+
+```bash
+npm run package:hostinger   # creates ./deploy — upload its contents to public_html
+```
+
+Full step-by-step instructions (database, config, HTTPS, admin) are in
+**[HOSTINGER-DEPLOY-PHP.md](HOSTINGER-DEPLOY-PHP.md)**.
+
+### Deploying to shared hosting — static, browser-only (no database)
+
+There's also a **static, browser-only build** with no backend at all. Progress saves in each
+visitor's browser, so there's **no cross-device login, shared leaderboard, or admin panel** — use
+the PHP version above unless you specifically want a zero-database demo.
 
 ```bash
 npm run build:static     # outputs client/dist — upload its contents to public_html
 ```
 
-Full step-by-step upload instructions are in **[HOSTINGER-DEPLOY.md](HOSTINGER-DEPLOY.md)**.
+Instructions: **[HOSTINGER-DEPLOY.md](HOSTINGER-DEPLOY.md)**.
 
 ### Deploying for the team (with the live leaderboard)
 
@@ -154,9 +175,17 @@ Note: registering an email that already exists returns a clear "already register
 ├── client/
 │   └── src/
 │       ├── pages/        # Dashboard, LevelMap, ModulePage, BossQuiz, Vault, Missions, Badges, Leaderboard, Auth
-│       ├── components/   # Layout/HUD, LessonBlocks, PromptCard
+│       ├── components/   # Layout/HUD, LessonBlocks, PromptCard, InstallButton (PWA)
+│       ├── pwa.js        # install-prompt plumbing + service-worker registration
 │       └── styles.css    # WHAM neon-arcade design system
-└── package.json          # setup / dev / build / start scripts
+├── php/                  # PHP + MySQL backend for Hostinger shared hosting
+│   ├── api/              # JSON API mirroring server/index.js (auth, grading, leaderboard)
+│   │   ├── index.php     #   front controller (routes /api/*)
+│   │   ├── lib.php       #   JWT, grading, progress/badge logic  ·  db.php  ·  content.full.php
+│   │   └── config.php    #   DB + admin credentials (you create this; git-ignored)
+│   └── admin/            # standalone admin panel + .xlsx export (index.php, lib_admin.php, xlsx.php)
+├── scripts/              # export-content · generate-icons · package-hostinger
+└── package.json          # setup / dev / build / start / package:hostinger scripts
 ```
 
 ## Editing the content

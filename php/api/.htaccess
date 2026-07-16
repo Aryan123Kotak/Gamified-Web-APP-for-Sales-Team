@@ -1,0 +1,21 @@
+# Route every /api/* request through the front controller.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Pass HTTP Authorization header through to PHP (some hosts strip it).
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  # Anything that isn't an existing real file goes to index.php.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Never serve the raw content, config, secret or rate-limit files, even if the
+# rewrite is disabled. (content.full.php / config.php are .php and emit nothing
+# when hit directly, but we deny them explicitly as defence in depth.)
+<FilesMatch "\.(json|sqlite|db)$|^(config|content\.full)\.php$|^\.auth-secret$">
+  Require all denied
+</FilesMatch>
+
+# Block the rate-limit + data folders entirely.
+RedirectMatch 404 /api/\.ratelimit(/.*)?$
+RedirectMatch 404 /api/data(/.*)?$

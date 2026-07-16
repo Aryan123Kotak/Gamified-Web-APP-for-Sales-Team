@@ -2,6 +2,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { useState } from 'react';
 import { useGame, rankFor } from '../store.jsx';
 import { isMuted, setMuted } from '../sounds.js';
+import InstallButton from './InstallButton.jsx';
 
 const NAV = [
   { to: '/', label: '🏠 Base' },
@@ -40,6 +41,7 @@ export default function Layout({ children }) {
             {current.emoji} {current.name}
           </span>
           <span className="hud-pill">{me.user.avatar} {me.user.name.split(' ')[0]}</span>
+          <InstallButton />
           <button className="btn ghost sm" onClick={toggleMute} title="Toggle sound">
             {muted ? '🔇' : '🔊'}
           </button>

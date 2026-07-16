@@ -5,3 +5,12 @@ server/data/
 .env
 *.log
 .DS_Store
+
+# PHP backend — secrets & runtime data (never commit these)
+php/api/config.php
+php/api/.auth-secret
+php/api/data/
+php/api/.ratelimit/
+
+# Assembled Hostinger upload bundle
+deploy/

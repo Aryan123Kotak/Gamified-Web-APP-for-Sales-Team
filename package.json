@@ -9,7 +9,10 @@
     "dev": "concurrently -n SERVER,CLIENT -c magenta,green \"node server/index.js\" \"npm --prefix client run dev\"",
     "build": "npm --prefix client run build",
     "build:static": "npm --prefix client run build:static",
-    "start": "cross-env NODE_ENV=production node server/index.js"
+    "start": "cross-env NODE_ENV=production node server/index.js",
+    "export:content": "node scripts/export-content.mjs",
+    "icons": "python3 scripts/generate-icons.py",
+    "package:hostinger": "node scripts/package-hostinger.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

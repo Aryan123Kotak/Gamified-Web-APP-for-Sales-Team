@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../store.jsx';
 import { sfx } from '../sounds.js';
+import InstallButton from '../components/InstallButton.jsx';
 
 const AVATARS = ['🦊', '🦁', '🐯', '🦅', '🐺', '🦈', '🐉', '🦄', '🐼', '🤖', '👽', '🥷'];
 
@@ -40,6 +41,8 @@ export default function Auth() {
           quizzes · graded missions · a toolkit of prompt cards · team leaderboard.
         </p>
         <div className="sticker pink mt-2">MALPANI GROUP · AI TRAINING</div>
+
+        <div className="mt-2"><InstallButton className="btn ghost sm" /></div>
 
         <div className="tab-switch">
           <button className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>
