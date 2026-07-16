@@ -4,48 +4,6 @@ A **gamified learning web app** for Malpani Group, built from the *AI Complete T
 
 Employees level up from **🌱 AI Newcomer** to **🏆 AI Champion** by clearing 23 levels across 3 stages — reading lessons, passing quizzes, collecting a toolkit of prompt cards, and completing graded practice missions.
 
-## Screenshots
-
-### The app
-
-<table>
-<tr>
-<td width="50%">
-<img src="docs/screenshots/app-01-login.png" alt="Login / new player screen with Install app button" width="100%">
-<p align="center"><sub>Login &amp; new player screen — with the <b>Install app</b> (PWA) button</sub></p>
-</td>
-<td width="50%">
-<img src="docs/screenshots/app-02-dashboard.png" alt="Player dashboard" width="100%">
-<p align="center"><sub>Dashboard — rank, streak, prompt of the day, leaderboard preview</sub></p>
-</td>
-</tr>
-<tr>
-<td width="50%">
-<img src="docs/screenshots/app-03-map.png" alt="Learning journey map" width="100%">
-<p align="center"><sub>Learning Journey — 23 levels across 3 stages</sub></p>
-</td>
-<td width="50%">
-<img src="docs/screenshots/app-09-leaderboard.png" alt="Team leaderboard" width="100%">
-<p align="center"><sub>Team leaderboard — all-time &amp; this-week XP (shared across devices)</sub></p>
-</td>
-</tr>
-</table>
-
-### The admin panel (`/admin`)
-
-<table>
-<tr>
-<td width="50%">
-<img src="docs/screenshots/admin-02-users.png" alt="Admin — all users" width="100%">
-<p align="center"><sub>All users &amp; performance, with one-click <b>Export to Excel</b></sub></p>
-</td>
-<td width="50%">
-<img src="docs/screenshots/admin-03-user-detail.png" alt="Admin — user journey detail" width="100%">
-<p align="center"><sub>A user's full journey — lessons, quizzes, mission submissions, badges, XP log</sub></p>
-</td>
-</tr>
-</table>
-
 ## The three stages (23 levels)
 
 - **🟢 Stage 1 · AI Ready** (Levels 0–6) — getting comfortable, what AI is/isn't, AI vs Google vs Human, safe/responsible use (Green-Yellow-Red), prompting (RTF / CTRO / CO-STAR), verification (PAUSE), image models.
