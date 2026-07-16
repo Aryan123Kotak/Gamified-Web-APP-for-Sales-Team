@@ -1,10 +1,23 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useGame } from '../store.jsx';
 import { moduleStatus } from '../helpers.jsx';
 import PromptCard from '../components/PromptCard.jsx';
 import { confetti } from '../confetti.js';
 import { sfx } from '../sounds.js';
+
+// Return the indices 0..n-1 in a random order (Fisher–Yates). Used to shuffle
+// each question's answer options so the correct answer isn't always in the same
+// spot. We shuffle the DISPLAY order only and map each choice back to its
+// original index before submitting, so server-side grading is unchanged.
+function shuffledIndices(n) {
+  const a = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export default function BossQuiz() {
   const { id } = useParams();
@@ -19,6 +32,14 @@ export default function BossQuiz() {
   const [revealed, setRevealed] = useState(0); // questions replayed on result screen
   const [busy, setBusy] = useState(false);
   const [bossHitAnim, setBossHitAnim] = useState(false);
+  const [attempt, setAttempt] = useState(0); // bumps on "fight again" to reshuffle
+
+  // A stable shuffle of each question's options for this attempt. Recomputed when
+  // the module changes or the player retries — not on every keystroke/render.
+  const orders = useMemo(() => {
+    const qs = mod?.quiz || [];
+    return qs.map((q) => shuffledIndices(q.options.length));
+  }, [mod?.id, attempt]);
 
   if (!mod) return <p className="muted">Module not found.</p>;
   const s = moduleStatus(mod, me.progress);
@@ -157,7 +178,7 @@ export default function BossQuiz() {
                 <Link className="btn ghost" to={`/module/${mod.id}`}>Re-read lessons</Link>
                 <button
                   className="btn"
-                  onClick={() => { setResult(null); setAnswers([]); setQIndex(0); setRevealed(0); }}
+                  onClick={() => { setResult(null); setAnswers([]); setQIndex(0); setRevealed(0); setAttempt((a) => a + 1); }}
                 >
                   ⚔️ FIGHT AGAIN
                 </button>
@@ -195,13 +216,13 @@ export default function BossQuiz() {
         <span className="sticker cyan">QUESTION {qIndex + 1} / {total}</span>
         <h2 style={{ fontSize: '1.25rem', marginTop: 12 }}>{q.q}</h2>
         <div className="mt-1">
-          {q.options.map((opt, i) => (
+          {(orders[qIndex] || q.options.map((_, i) => i)).map((origIdx, pos) => (
             <button
-              key={i}
-              className={`option-btn ${selected === i ? 'sel' : ''}`}
-              onClick={() => { setSelected(i); sfx.click(); }}
+              key={origIdx}
+              className={`option-btn ${selected === origIdx ? 'sel' : ''}`}
+              onClick={() => { setSelected(origIdx); sfx.click(); }}
             >
-              <b className="game-font" style={{ marginRight: 8 }}>{'ABCD'[i]}</b> {opt}
+              <b className="game-font" style={{ marginRight: 8 }}>{'ABCD'[pos]}</b> {q.options[origIdx]}
             </button>
           ))}
         </div>
