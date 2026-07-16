@@ -36,6 +36,25 @@ CSP-broken confirmation dialog) plus a few low-risk items.
 
 No **Critical** issues found.
 
+### Remediation status — ALL FIXED ✅ (2026-07-16)
+
+Every finding above has been remediated and re-tested. Verification evidence in parentheses.
+
+| # | Fix applied |
+|---|-------------|
+| **H1** | Admin login now uses the per-IP rate limiter (10/15 min) + a 0.4 s failure delay. *(11 wrong attempts → "Too many login attempts")* |
+| **M1** | Session cookie hardened via `session_set_cookie_params`: `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS. *(Set-Cookie now shows `HttpOnly; SameSite=Lax`)* |
+| **M2** | Inline `onsubmit` handlers replaced with `data-confirm` + an external `admin/admin.js`; admin pages also send a CSP that permits `script-src 'self'`. *(0 inline handlers; admin.js served 200; confirmations work under CSP)* |
+| **M3** | Admin auth now accepts a bcrypt **hash** in `config.php` (plaintext still supported); added `scripts/make-admin-hash.php`. *(login with a `$2y$…` config succeeds)* |
+| **L1** | Added `PRAGMA busy_timeout = 5000` for SQLite (production MySQL unaffected). |
+| **L2** | Minimum password length raised to **8** across API, admin, client, and Node backend. *(7-char → 400, 8-char → accepted)* |
+| **L4** | `write_content()` now guards `json_encode` failure and writes a `.bak` before overwriting. |
+| **L5** | Core security headers (`nosniff`, `X-Frame-Options`, `Referrer-Policy`, + a CSP for admin HTML) are now also sent from PHP as an nginx backstop. *(headers present on API + admin responses)* |
+| L3 / L6 / L7 / L8 | Reviewed and retained as documented product/infra trade-offs (internal-tool enumeration message, offline static build, stateless-JWT expiry, PHP-handler dependency) — no code change warranted; mitigations already in place. |
+
+Re-tested after fixes: **16/16 unit tests still pass**; admin brute-force throttled; session-cookie
+flags present; CSP-safe confirmations; password policy enforced end-to-end.
+
 ---
 
 ## 1. Unit testing — PASS (16/16)

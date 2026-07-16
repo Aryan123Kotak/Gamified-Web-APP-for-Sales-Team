@@ -24,9 +24,14 @@ return [
 
   // ----- Admin panel login (you control this) -----
   // Log in at /admin/ with these. Change them any time by editing this file.
+  //
+  // RECOMMENDED: store a bcrypt HASH of your password instead of the plaintext,
+  // so the raw password never sits in a file. Generate one with:
+  //     php scripts/make-admin-hash.php 'your-strong-password'
+  // then paste the $2y$… value below. Plaintext still works if you prefer.
   'admin' => [
     'email'    => 'admin@example.com',
-    'password' => 'change-this-admin-password',
+    'password' => 'change-this-admin-password', // or a $2y$… bcrypt hash
   ],
 
   // ----- Auth token signing secret -----

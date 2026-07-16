@@ -6,35 +6,42 @@ Employees level up from **🌱 AI Newcomer** to **🏆 AI Champion** by clearing
 
 ## Screenshots
 
+### The app
+
 <table>
 <tr>
 <td width="50%">
-<img src="docs/screenshots/01-login.png" alt="Login / new player screen" width="100%">
-<p align="center"><sub>Login &amp; new player screen</sub></p>
+<img src="docs/screenshots/app-01-login.png" alt="Login / new player screen with Install app button" width="100%">
+<p align="center"><sub>Login &amp; new player screen — with the <b>Install app</b> (PWA) button</sub></p>
 </td>
 <td width="50%">
-<img src="docs/screenshots/02-dashboard.png" alt="Player dashboard" width="100%">
+<img src="docs/screenshots/app-02-dashboard.png" alt="Player dashboard" width="100%">
 <p align="center"><sub>Dashboard — rank, streak, prompt of the day, leaderboard preview</sub></p>
 </td>
 </tr>
 <tr>
 <td width="50%">
-<img src="docs/screenshots/03-learning-journey.png" alt="Learning journey map" width="100%">
+<img src="docs/screenshots/app-03-map.png" alt="Learning journey map" width="100%">
 <p align="center"><sub>Learning Journey — 23 levels across 3 stages</sub></p>
 </td>
 <td width="50%">
-<img src="docs/screenshots/04-quiz-victory.png" alt="Quiz victory screen" width="100%">
-<p align="center"><sub>Level quiz — flawless victory with battle log</sub></p>
+<img src="docs/screenshots/app-09-leaderboard.png" alt="Team leaderboard" width="100%">
+<p align="center"><sub>Team leaderboard — all-time &amp; this-week XP (shared across devices)</sub></p>
 </td>
 </tr>
+</table>
+
+### The admin panel (`/admin`)
+
+<table>
 <tr>
 <td width="50%">
-<img src="docs/screenshots/05-mission-graded.png" alt="Graded mission submission" width="100%">
-<p align="center"><sub>A mission auto-graded 100/100 with per-point feedback</sub></p>
+<img src="docs/screenshots/admin-02-users.png" alt="Admin — all users" width="100%">
+<p align="center"><sub>All users &amp; performance, with one-click <b>Export to Excel</b></sub></p>
 </td>
 <td width="50%">
-<img src="docs/screenshots/06-leaderboard.png" alt="Team leaderboard" width="100%">
-<p align="center"><sub>Team leaderboard — all-time &amp; this-week XP</sub></p>
+<img src="docs/screenshots/admin-03-user-detail.png" alt="Admin — user journey detail" width="100%">
+<p align="center"><sub>A user's full journey — lessons, quizzes, mission submissions, badges, XP log</sub></p>
 </td>
 </tr>
 </table>

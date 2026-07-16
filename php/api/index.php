@@ -4,6 +4,8 @@
 
 require_once __DIR__ . '/lib.php';
 
+send_security_headers(); // backstop in case .htaccess header rules aren't applied
+
 // A real bcrypt hash of a random value, used to spend equal time verifying a
 // password when the email is unknown — closes the login timing side-channel
 // (parity with server/index.js DUMMY_HASH). Must be a valid hash so that
@@ -53,7 +55,7 @@ function register(): void {
   if (mb_strlen($name) > 60) fail('Name must be 60 characters or fewer');
   if (!is_string($email) || strlen($email) > 254 || !preg_match('/^\S+@\S+\.\S+$/', $email))
     fail('A valid email is required');
-  if (!is_string($password) || strlen($password) < 6) fail('Password must be at least 6 characters');
+  if (!is_string($password) || strlen($password) < 8) fail('Password must be at least 8 characters');
   if (strlen($password) > 200) fail('Password must be 200 characters or fewer');
 
   $email = mb_strtolower($email);

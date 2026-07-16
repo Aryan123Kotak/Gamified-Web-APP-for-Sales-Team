@@ -11,6 +11,7 @@ php/api/config.php
 php/api/.auth-secret
 php/api/data/
 php/api/.ratelimit/
+php/api/content.full.php.bak
 
 # Assembled Hostinger upload bundle
 deploy/

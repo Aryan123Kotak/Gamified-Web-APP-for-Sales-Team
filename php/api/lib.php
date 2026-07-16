@@ -345,20 +345,42 @@ function read_json_body(): array {
   return is_array($data) ? $data : [];
 }
 
-// Best-effort per-IP rate limiter (file-based sliding window). Fails open if the
-// directory isn't writable, so a hosting quirk can never lock people out.
-function rate_limit(string $bucket, int $max, int $windowSec): void {
+// Best-effort per-IP rate limiter (file-based sliding window). Returns true if the
+// request is allowed (and records it), false if the limit is exceeded. Fails open
+// (returns true) if the directory isn't writable, so a hosting quirk can never
+// lock people out. Callers choose how to respond — the API sends JSON, the admin
+// panel renders HTML.
+function rate_limit_check(string $bucket, int $max, int $windowSec): bool {
   $dir = __DIR__ . '/.ratelimit';
   if (!is_dir($dir)) @mkdir($dir, 0775, true);
-  if (!is_writable($dir)) return;
+  if (!is_writable($dir)) return true;
   $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
   $file = $dir . '/' . md5($bucket . '|' . $ip) . '.json';
   $now = time();
   $hits = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
   $hits = array_values(array_filter($hits, fn($t) => $t > $now - $windowSec));
-  if (count($hits) >= $max) {
-    fail('Too many attempts — please wait a few minutes and try again.', 429);
-  }
+  if (count($hits) >= $max) return false;
   $hits[] = $now;
   file_put_contents($file, json_encode($hits), LOCK_EX);
+  return true;
+}
+
+// API helper: 429 + JSON when the limit is hit.
+function rate_limit(string $bucket, int $max, int $windowSec): void {
+  if (!rate_limit_check($bucket, $max, $windowSec)) {
+    fail('Too many attempts — please wait a few minutes and try again.', 429);
+  }
+}
+
+// Core security headers, sent from PHP as a backstop in case a non-Apache host
+// (e.g. nginx) doesn't honour the .htaccess header rules.
+function send_security_headers(bool $html = false): void {
+  header('X-Content-Type-Options: nosniff');
+  header('X-Frame-Options: SAMEORIGIN');
+  header('Referrer-Policy: strict-origin-when-cross-origin');
+  if ($html) {
+    header("Content-Security-Policy: default-src 'self'; script-src 'self'; "
+      . "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+      . "base-uri 'self'; frame-ancestors 'self'; object-src 'none'");
+  }
 }

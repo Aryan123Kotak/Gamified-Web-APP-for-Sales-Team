@@ -10,11 +10,17 @@ if (strpos($path, '/api') === 0) {
   return true;
 }
 
-// Admin: serve real files, otherwise the admin front controller.
+// Admin: serve real files (e.g. admin.js) directly, otherwise the front controller.
 if (strpos($path, '/admin') === 0) {
   $rel = substr($path, strlen('/admin')) ?: '/';
   $file = __DIR__ . '/../php/admin' . $rel;
-  if ($rel !== '/' && is_file($file)) return false; // let the server serve static asset
+  if ($rel !== '/' && is_file($file) && !str_ends_with($file, '.php')) {
+    $types = ['js' => 'application/javascript', 'css' => 'text/css', 'png' => 'image/png', 'svg' => 'image/svg+xml'];
+    $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+    header('Content-Type: ' . ($types[$ext] ?? 'application/octet-stream'));
+    readfile($file);
+    return true;
+  }
   require __DIR__ . '/../php/admin/index.php';
   return true;
 }

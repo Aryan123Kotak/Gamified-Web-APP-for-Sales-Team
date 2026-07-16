@@ -16,6 +16,8 @@ function db(): PDO {
     $pdo = new PDO('sqlite:' . $d['sqlite_path']);
     $pdo->exec('PRAGMA journal_mode = WAL');
     $pdo->exec('PRAGMA foreign_keys = ON');
+    // Wait up to 5s for a lock instead of erroring immediately under concurrency.
+    $pdo->exec('PRAGMA busy_timeout = 5000');
   } else {
     $dsn = sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4', $d['host'], $d['name']);
     $pdo = new PDO($dsn, $d['user'], $d['pass']);

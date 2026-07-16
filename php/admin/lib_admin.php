@@ -5,6 +5,15 @@
 
 require_once __DIR__ . '/../api/lib.php';   // db(), content(), modules(), all_missions(), config()...
 
+// Harden the session cookie before starting the session: HttpOnly (JS can't read
+// it), SameSite=Lax (CSRF surface), and Secure whenever the request is HTTPS
+// (Hostinger terminates SSL and forwards X-Forwarded-Proto). Secure is only set
+// on HTTPS so first-time setup over plain HTTP still works.
+$https = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off')
+  || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+session_set_cookie_params([
+  'lifetime' => 0, 'path' => '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax',
+]);
 session_start();
 
 // ---- auth ----
@@ -13,8 +22,13 @@ function admin_logged_in(): bool { return !empty($_SESSION['arena_admin']); }
 
 function admin_attempt_login(string $email, string $password): bool {
   $a = config()['admin'] ?? [];
+  $configuredPass = (string)($a['password'] ?? '');
   $okEmail = hash_equals(mb_strtolower((string)($a['email'] ?? '')), mb_strtolower(trim($email)));
-  $okPass  = hash_equals((string)($a['password'] ?? ''), (string)$password);
+  // Accept either a bcrypt hash (recommended) or a plaintext password in config.
+  $isHash = (bool)preg_match('/^\$2[aby]\$/', $configuredPass);
+  $okPass = $isHash
+    ? password_verify((string)$password, $configuredPass)
+    : ($configuredPass !== '' && hash_equals($configuredPass, (string)$password));
   if ($okEmail && $okPass) {
     session_regenerate_id(true);
     $_SESSION['arena_admin'] = true;
@@ -82,12 +96,14 @@ function user_summary(int $userId): array {
 // ---- layout ----
 
 function layout_head(string $title): void {
+  send_security_headers(true); // nosniff + X-Frame-Options + CSP backstop for HTML
   $flash = flash();
   echo '<!doctype html><html lang="en"><head><meta charset="utf-8">';
   echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
   echo '<meta name="robots" content="noindex,nofollow">';
   echo '<title>' . h($title) . ' · Arena Admin</title>';
-  echo '<style>' . admin_css() . '</style></head><body>';
+  echo '<style>' . admin_css() . '</style>';
+  echo '<script src="admin.js" defer></script></head><body>';
   if (admin_logged_in()) {
     echo '<header class="topbar"><b>⚡ Arena Admin</b><nav>'
       . '<a href="?p=dashboard">Users</a>'

@@ -273,8 +273,8 @@ app.post('/api/auth/register', authLimiter, (req, res) => {
     return res.status(400).json({ error: 'Name must be 60 characters or fewer' });
   if (!email || typeof email !== 'string' || email.length > 254 || !/^\S+@\S+\.\S+$/.test(email))
     return res.status(400).json({ error: 'A valid email is required' });
-  if (typeof password !== 'string' || password.length < 6)
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (typeof password !== 'string' || password.length < 8)
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
   if (password.length > 200)
     return res.status(400).json({ error: 'Password must be 200 characters or fewer' });
 

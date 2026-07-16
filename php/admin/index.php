@@ -8,7 +8,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $action = $_POST['action'] ?? '';
 
   if ($action === 'login') {
+    // Brute-force protection: throttle admin login attempts per IP.
+    if (!rate_limit_check('admin-login', 10, 900)) {
+      flash('Too many login attempts — please wait a few minutes and try again.');
+      redirect('?p=login');
+    }
     if (admin_attempt_login($_POST['email'] ?? '', $_POST['password'] ?? '')) redirect('?p=dashboard');
+    usleep(400000); // ~0.4s penalty on failure to further slow guessing
     flash('Wrong admin email or password.');
     redirect('?p=login');
   }
@@ -138,7 +144,7 @@ function page_user(): void {
   echo '<hr style="border-color:#2a2b52;margin:18px 0">';
   echo '<form method="post" class="row">' . csrf_field()
     . '<input type="hidden" name="action" value="reset_password"><input type="hidden" name="id" value="' . $id . '">'
-    . '<input name="password" type="text" placeholder="New password (min 6)" minlength="6" required style="max-width:220px">'
+    . '<input name="password" type="text" placeholder="New password (min 8)" minlength="8" required style="max-width:220px">'
     . '<button class="btn warn sm">Reset password</button></form>';
   echo '</div>';
 
@@ -158,7 +164,7 @@ function page_user(): void {
   }
   echo '</select><button class="btn sm">Mark complete</button></form>';
 
-  echo '<form method="post" onsubmit="return confirm(\'Wipe ALL progress, XP and badges for this user?\')">' . csrf_field()
+  echo '<form method="post" data-confirm="Wipe ALL progress, XP and badges for this user?">' . csrf_field()
     . '<input type="hidden" name="action" value="reset_progress"><input type="hidden" name="id" value="' . $id . '">'
     . '<button class="btn danger sm">Reset all progress</button></form>';
   echo '</div>';
@@ -226,7 +232,7 @@ function page_user(): void {
 
   // ---- delete ----
   echo '<h2 style="color:#ff8fa3">Danger zone</h2>';
-  echo '<form method="post" onsubmit="return confirm(\'Permanently DELETE this user and all their data?\')">' . csrf_field()
+  echo '<form method="post" data-confirm="Permanently DELETE this user and all their data?">' . csrf_field()
     . '<input type="hidden" name="action" value="delete_user"><input type="hidden" name="id" value="' . $id . '">'
     . '<button class="btn danger">Delete user</button></form>';
 
@@ -240,7 +246,7 @@ function page_add_user_form(): void {
     . '<input type="hidden" name="action" value="add_user">'
     . '<label>Name</label><input name="name" maxlength="60" required>'
     . '<label>Email</label><input name="email" type="email" required>'
-    . '<label>Password (min 6)</label><input name="password" type="text" minlength="6" required>'
+    . '<label>Password (min 8)</label><input name="password" type="text" minlength="8" required>'
     . '<label>Avatar</label><select name="avatar">';
   foreach (ALLOWED_AVATARS as $av) echo '<option>' . $av . '</option>';
   echo '</select><div style="margin-top:16px"><button class="btn">Create user</button></div></form></div>';
@@ -307,7 +313,7 @@ function action_add_user(): void {
   $avatar = $_POST['avatar'] ?? '🦊';
   if ($name === '' || mb_strlen($name) > 60) { flash('Name required (≤60 chars).'); redirect('?p=user&id=new'); }
   if (!preg_match('/^\S+@\S+\.\S+$/', $email)) { flash('Valid email required.'); redirect('?p=user&id=new'); }
-  if (strlen($password) < 6) { flash('Password must be ≥6 characters.'); redirect('?p=user&id=new'); }
+  if (strlen($password) < 8) { flash('Password must be ≥8 characters.'); redirect('?p=user&id=new'); }
   $ex = db()->prepare('SELECT id FROM users WHERE email = ?'); $ex->execute([$email]);
   if ($ex->fetch()) { flash('That email is already registered.'); redirect('?p=user&id=new'); }
   if (!in_array($avatar, ALLOWED_AVATARS, true)) $avatar = '🦊';
@@ -335,7 +341,7 @@ function action_save_user(): void {
 function action_reset_password(): void {
   $id = post_int('id');
   $pw = $_POST['password'] ?? '';
-  if (strlen($pw) < 6) { flash('Password must be ≥6 characters.'); redirect('?p=user&id=' . $id); }
+  if (strlen($pw) < 8) { flash('Password must be ≥8 characters.'); redirect('?p=user&id=' . $id); }
   db()->prepare('UPDATE users SET password_hash=? WHERE id=?')->execute([password_hash($pw, PASSWORD_BCRYPT), $id]);
   flash('Password reset.');
   redirect('?p=user&id=' . $id);
@@ -475,8 +481,10 @@ function rebuild_derived(array $c): array {
 function write_content(array $c): bool {
   $file = __DIR__ . '/../api/content.full.php';
   $json = json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  if ($json === false) return false; // never write a broken content file
   $php = "<?php\n// AUTO-GENERATED — last edited via the admin panel.\n// Canonical source: server/content/*.js (keep in sync if you redeploy code).\n"
     . "return json_decode(<<<'ARENA_CONTENT_JSON'\n" . $json . "\nARENA_CONTENT_JSON, true);\n";
+  if (is_file($file)) @copy($file, $file . '.bak'); // keep a one-step rollback
   return file_put_contents($file, $php, LOCK_EX) !== false;
 }
 
