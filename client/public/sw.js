@@ -1,7 +1,7 @@
 // Service worker — makes the app installable and gives it a fast, offline-capable
 // shell. API calls (/api/*) are always network-only so progress is never stale.
 
-const CACHE = 'arena-shell-v1';
+const CACHE = 'arena-shell-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

@@ -22,6 +22,18 @@
   ExpiresByType image/svg+xml "access plus 1 month"
 </IfModule>
 
+# ----- but NEVER long-cache the service worker or the HTML entry point -----
+# sw.js and index.html have fixed names, so they must be re-checked on every
+# visit or the browser keeps running an old, cached version of the app.
+<FilesMatch "^(sw\.js|index\.html)$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </IfModule>
+  <IfModule mod_expires.c>
+    ExpiresActive Off
+  </IfModule>
+</FilesMatch>
+
 # The app uses hash routing (URLs like /#/map), so no SPA rewrite rules are
 # needed — every request maps to a real file. index.html is the entry point.
 DirectoryIndex index.html
